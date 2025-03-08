@@ -1,0 +1,36 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: sample-application
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sample-application
+  template:
+    metadata:
+      labels:
+        app: sample-application
+        mutate: "true"
+    spec:
+      containers:
+        - name: sample-application
+          image: alpine
+          env:
+            - name: GOMAXPROCS
+              value: "2"
+            - name: some_env
+              value: foo
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - sleep 3600
+          resources:
+            requests:
+              memory: 100Mi
+              cpu: 100m
+            limits:
+              memory: 100Mi
+              cpu: 100m

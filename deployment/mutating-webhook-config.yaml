@@ -1,0 +1,31 @@
+kind: MutatingWebhookConfiguration
+apiVersion: admissionregistration.k8s.io/v1
+metadata:
+  name: pod-set-go-resources
+  annotations:
+    cert-manager.io/inject-ca-from: mutating-webhook/mutating-webhook
+webhooks:
+  - name: mutating-webhook.mutating-webhook.svc.cluster.local
+    # In a real prod environment this should probably be "Fail"
+    failurePolicy: Ignore
+    reinvocationPolicy: IfNeeded
+    objectSelector:
+      matchExpressions:
+      - key: "mutate"
+        operator: "In"
+        values:
+        - "true"
+    clientConfig:
+      service:
+        namespace: mutating-webhook
+        name: mutating-webhook
+        path: /mutate
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations:
+        - "CREATE"
+        scope: Namespaced
+    sideEffects: None
+    admissionReviewVersions: ["v1"]

@@ -1,0 +1,24 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: mutating-webhook
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mutating-webhook
+  namespace: mutating-webhook
+spec:
+  secretName: mutation-webhook-certificate
+  dnsNames:
+  - mutating-webhook
+  - mutating-webhook.mutating-webhook
+  - mutating-webhook.mutating-webhook.svc
+  - mutating-webhook.mutating-webhook.svc.cluster
+  - mutating-webhook.mutating-webhook.svc.cluster.local
+  issuerRef:
+    name: selfsigned
