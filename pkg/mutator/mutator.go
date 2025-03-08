@@ -49,7 +49,7 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 	// a bunch of one shot patches and avoid having to take
 	// into account things like "is the env list empty" and whatnot
 	containerEnv := pod.Spec.Containers[0].Env
-	additionalValues := make(map[string]struct {
+	additionalEnv := make(map[string]struct {
 		Value string
 		Set   bool
 	})
@@ -70,7 +70,7 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 
 	if pod.Spec.Containers[0].Resources.Requests.Cpu() != nil {
 		logger.Info("CPU requests set", "value", pod.Spec.Containers[0].Resources.Requests.Cpu().Value())
-		additionalValues["GOMAXPROCS"] = struct {
+		additionalEnv["GOMAXPROCS"] = struct {
 			Value string
 			Set   bool
 		}{
@@ -89,7 +89,7 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 
 	if pod.Spec.Containers[0].Resources.Requests.Memory() != nil {
 		logger.Info("Memory requests set", "value", pod.Spec.Containers[0].Resources.Requests.Memory().Value())
-		additionalValues["GOMEMLIMIT"] = struct {
+		additionalEnv["GOMEMLIMIT"] = struct {
 			Value string
 			Set   bool
 		}{
@@ -108,15 +108,15 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 
 	// Patch the environment variables set
 	for idx, env := range containerEnv {
-		if _, ok := additionalValues[env.Name]; ok {
-			containerEnv[idx].Value = additionalValues[env.Name].Value
-			entry := additionalValues[env.Name]
+		if _, ok := additionalEnv[env.Name]; ok {
+			containerEnv[idx].Value = additionalEnv[env.Name].Value
+			entry := additionalEnv[env.Name]
 			entry.Set = true
-			additionalValues[env.Name] = entry
+			additionalEnv[env.Name] = entry
 		}
 	}
 
-	for k, v := range additionalValues {
+	for k, v := range additionalEnv {
 		if !v.Set {
 			containerEnv = append(containerEnv, corev1.EnvVar{
 				Name:  k,
