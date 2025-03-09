@@ -3,8 +3,10 @@ package mutator
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/dustin/go-humanize"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -18,7 +20,7 @@ const (
 
 // MutatePod will mutate the pod according to the incoming spec.
 // We should only get pod review to this function
-func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
+func MutatePod(cfg *config.Config, admissionRequest *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
 	namespace := admissionRequest.Request.Namespace
 
 	logger := log.GetLogger().With(
@@ -99,22 +101,28 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 	}
 
 	if pod.Spec.Containers[0].Resources.Requests.Memory() != nil {
-		logger.Info("Memory requests set", "value", pod.Spec.Containers[0].Resources.Requests.Memory().Value())
+		newMemLimit := int64(math.Ceil(cfg.GoMemLimitFactor * float64(pod.Spec.Containers[0].Resources.Requests.Memory().Value())))
+		logger.Info(
+			"memory requests set",
+			"value", pod.Spec.Containers[0].Resources.Requests.Memory().Value(),
+			"adjusted_value", newMemLimit,
+			"factor", cfg.GoMemLimitFactor,
+		)
 		additionalEnv["GOMEMLIMIT"] = struct {
 			Value string
 			Set   bool
 		}{
-			Value: fmt.Sprintf("%d", pod.Spec.Containers[0].Resources.Requests.Memory().Value()),
+			Value: fmt.Sprintf("%d", newMemLimit),
 		}
 
 		additionalAnnotations[goMemLimitAnnotation] = struct {
 			Value string
 			Set   bool
 		}{
-			Value: humanize.Bytes(uint64(pod.Spec.Containers[0].Resources.Requests.Memory().Value())),
+			Value: humanize.Bytes(uint64(newMemLimit)),
 		}
 	} else {
-		logger.Info("no memory requests set")
+		logger.Info("no memory requests set, not trying to set anything")
 	}
 
 	// Patch the environment variables set
@@ -192,8 +200,6 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 		metrics.PodMutation.Inc([]string{namespace, metrics.LabelFailure})
 		return nil, fmt.Errorf("failed to marshal patch: %w", err)
 	}
-
-	logger.Info(string(bytesPatch))
 
 	admissionResponse.Allowed = true
 	if len(patches) > 0 {

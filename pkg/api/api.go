@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/mutator"
@@ -15,12 +16,14 @@ import (
 type Api struct {
 	logger *slog.Logger
 	engine *gin.Engine
+	config *config.Config
 }
 
-func NewAPI(logger *slog.Logger) (*Api, error) {
+func NewAPI(logger *slog.Logger, config *config.Config) (*Api, error) {
 	a := &Api{
 		logger: logger,
 		engine: gin.New(),
+		config: config,
 	}
 
 	a.engine.Use(gin.Recovery())
@@ -60,7 +63,7 @@ func (a *Api) Mutate(ctx *gin.Context) {
 		return
 	}
 
-	response, err := mutator.MutatePod(request)
+	response, err := mutator.MutatePod(a.config, request)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		ctx.Writer.Write([]byte(fmt.Sprintf("internal server error: %s", err)))

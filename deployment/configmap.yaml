@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mutating-webhook
+  namespace: mutating-webhook
+data:
+  config.yaml: |
+     ---
+     # Factor by which multiply the requests
+     go_mem_limit_factor: 0.95

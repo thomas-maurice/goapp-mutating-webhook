@@ -33,9 +33,13 @@ spec:
           - /mutating-webhook
           - -cert=/tls/tls.crt
           - -key=/tls/tls.key
+          - -config=/etc/config/config.yaml
           volumeMounts:
             - name: certificate
               mountPath: /tls
+              readOnly: true
+            - name: config
+              mountPath: /etc/config
               readOnly: true
           resources:
             requests:
@@ -70,3 +74,6 @@ spec:
         - name: certificate
           secret:
             secretName: mutation-webhook-certificate
+        - name: config
+          configMap:
+            name: mutating-webhook
