@@ -16,8 +16,9 @@ spec:
       maxSurge: 0
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        config/checksum: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum | trunc 8 }}
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
