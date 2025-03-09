@@ -85,7 +85,8 @@ func MutatePod(cfg *config.Config, admissionRequest *admissionv1.AdmissionReview
 	if pod.Spec.Containers[0].Resources.Requests.Cpu() != nil {
 		logger.Info(
 			"GOMACPROCS environment variable set",
-			"requested_cpu", pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue(),
+			"requested_cpu_millis", pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue(),
+			"requested_cpu", pod.Spec.Containers[0].Resources.Requests.Cpu().Value(),
 			"adjusted_value", pod.Spec.Containers[0].Resources.Requests.Cpu().Value(),
 		)
 		additionalEnv["GOMAXPROCS"] = struct {
