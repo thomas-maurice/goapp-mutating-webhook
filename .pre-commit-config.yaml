@@ -1,4 +1,15 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        exclude: ^chart/.*$
+        args:
+          - --allow-multiple-documents
+      - id: end-of-file-fixer
+        exclude: ^chart/.*$
+      - id: trailing-whitespace
+        exclude: ^chart/.*$
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.61.0
     hooks:
