@@ -84,9 +84,9 @@ readinessProbe:
   failureThreshold: 3
   successThreshold: 3
 
-nodeSelector:
+nodeSelector: {}
   # image is not compiled for arm64 yet
-  kubernetes.io/arch: "amd64"
+  # kubernetes.io/arch: "amd64"
 
 tolerations: []
 
