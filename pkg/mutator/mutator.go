@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	goMemLimitAnnotation = "webhooks.maurice.fr/adjusted-GOMEMLIMIT"
-	goMaxProcsAnnotation = "webhooks.maurice.fr/adjusted-GOMAXPROCS"
+	goMemLimitAnnotation       = "webhooks.maurice.fr/adjusted-GOMEMLIMIT"
+	goMemLimitFactorAnnotation = "webhooks.maurice.fr/adjusted-GOMEMLIMIT-factor"
+	goMaxProcsAnnotation       = "webhooks.maurice.fr/adjusted-GOMAXPROCS"
 )
 
 // MutatePod will mutate the pod according to the incoming spec.
@@ -82,7 +83,11 @@ func MutatePod(cfg *config.Config, admissionRequest *admissionv1.AdmissionReview
 	})
 
 	if pod.Spec.Containers[0].Resources.Requests.Cpu() != nil {
-		logger.Info("CPU requests set", "value", pod.Spec.Containers[0].Resources.Requests.Cpu().Value())
+		logger.Info(
+			"GOMACPROCS environment variable set",
+			"requested_cpu", pod.Spec.Containers[0].Resources.Requests.Memory().MilliValue(),
+			"adjusted_value", pod.Spec.Containers[0].Resources.Requests.Cpu().Value(),
+		)
 		additionalEnv["GOMAXPROCS"] = struct {
 			Value string
 			Set   bool
@@ -97,14 +102,15 @@ func MutatePod(cfg *config.Config, admissionRequest *admissionv1.AdmissionReview
 			Value: fmt.Sprintf("%d", pod.Spec.Containers[0].Resources.Requests.Cpu().Value()),
 		}
 	} else {
-		logger.Info("no CPU requests set")
+		logger.Info("no CPU requests set -- skipping GOMAXPROCS")
 	}
 
 	if pod.Spec.Containers[0].Resources.Requests.Memory() != nil {
+		// compute the value according to the factor in the configuration
 		newMemLimit := int64(math.Ceil(cfg.GoMemLimitFactor * float64(pod.Spec.Containers[0].Resources.Requests.Memory().Value())))
 		logger.Info(
-			"memory requests set",
-			"value", pod.Spec.Containers[0].Resources.Requests.Memory().Value(),
+			"GOMEMLIMIT environment variable set",
+			"requested_memory", pod.Spec.Containers[0].Resources.Requests.Memory().Value(),
 			"adjusted_value", newMemLimit,
 			"factor", cfg.GoMemLimitFactor,
 		)
@@ -121,8 +127,15 @@ func MutatePod(cfg *config.Config, admissionRequest *admissionv1.AdmissionReview
 		}{
 			Value: humanize.Bytes(uint64(newMemLimit)),
 		}
+
+		additionalAnnotations[goMemLimitFactorAnnotation] = struct {
+			Value string
+			Set   bool
+		}{
+			Value: fmt.Sprintf("%.2f", cfg.GoMemLimitFactor),
+		}
 	} else {
-		logger.Info("no memory requests set, not trying to set anything")
+		logger.Info("no memory requests set -- skipping GOMEMLIMIT")
 	}
 
 	// Patch the environment variables set
