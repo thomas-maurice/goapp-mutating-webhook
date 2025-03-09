@@ -95,4 +95,3 @@ mutator_pod_mutations{namespace="default",status="STATUS"}
 ```
 
 Where `STATUS` can be one of `SUCCESS` or `FAILURE`
-
