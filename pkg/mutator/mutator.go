@@ -6,6 +6,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -18,8 +19,10 @@ const (
 // MutatePod will mutate the pod according to the incoming spec.
 // We should only get pod review to this function
 func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
+	namespace := admissionRequest.Request.Namespace
+
 	logger := log.GetLogger().With(
-		"namespace", admissionRequest.Request.Namespace,
+		"namespace", namespace,
 		"kind", admissionRequest.Request.Resource,
 	)
 
@@ -27,6 +30,7 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 	// never be too sure innit
 	err := CheckRequest(admissionRequest)
 	if err != nil {
+		metrics.PodMutation.Inc([]string{namespace, metrics.LabelFailure})
 		return nil, err
 	}
 
@@ -36,6 +40,7 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 	pod := corev1.Pod{}
 	if _, _, err := deserializer.Decode(podObject, nil, &pod); err != nil {
 		logger.Error("could not unmarshal pod", "error", err)
+		metrics.PodMutation.Inc([]string{namespace, metrics.LabelFailure})
 		return nil, fmt.Errorf("could not unmarshal pod: %w", err)
 	}
 
@@ -56,6 +61,9 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 
 	// Same approach as the containerEnv
 	podAnnotations := pod.ObjectMeta.Annotations
+	if podAnnotations == nil {
+		podAnnotations = make(map[string]string)
+	}
 	additionalAnnotations := make(map[string]struct {
 		Value string
 		Set   bool
@@ -63,6 +71,9 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 
 	// Same approach as the containerEnv
 	podLabels := pod.ObjectMeta.Labels
+	if podLabels == nil {
+		podLabels = make(map[string]string)
+	}
 	additionalLabels := make(map[string]struct {
 		Value string
 		Set   bool
@@ -178,6 +189,7 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 	bytesPatch, err := json.Marshal(&patches)
 	if err != nil {
 		logger.Error("failed to marshal patch", "error", err)
+		metrics.PodMutation.Inc([]string{namespace, metrics.LabelFailure})
 		return nil, fmt.Errorf("failed to marshal patch: %w", err)
 	}
 
@@ -194,6 +206,8 @@ func MutatePod(admissionRequest *admissionv1.AdmissionReview) (*admissionv1.Admi
 	admissionReviewResponse.Response = admissionResponse
 	admissionReviewResponse.SetGroupVersionKind(admissionRequest.GroupVersionKind())
 	admissionReviewResponse.Response.UID = admissionRequest.Request.UID
+
+	metrics.PodMutation.Inc([]string{namespace, metrics.LabelSuccess})
 
 	return &admissionReviewResponse, nil
 }

@@ -19,6 +19,11 @@ Once that's done install cert-manager:
 make cert-manager
 ```
 
+Once that's done install prometheus:
+```bash
+make prometheus
+```
+
 Then load the image into kind:
 ```bash
 make load-image
@@ -81,3 +86,13 @@ spec:
 ```
 
 And re-apply, you should see your spawned pods showing up with `GOMAXPROCS` set according to the requests you set.
+
+## Metrics
+
+The mutator exposes metrics on the `metrics` port. One metric you might want to look at is
+```
+mutator_pod_mutations{namespace="default",status="STATUS"}
+```
+
+Where `STATUS` can be one of `SUCCESS` or `FAILURE`
+

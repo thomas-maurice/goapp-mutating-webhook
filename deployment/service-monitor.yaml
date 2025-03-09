@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: mutating-webhook
+    # label required for prom to see the monitor
+    release: "prometheus"
+  name: mutating-webhook
+  namespace: mutating-webhook
+spec:
+  endpoints:
+  - interval: 15s
+    targetPort: 443
+    path: /metrics
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      app: "mutating-webhook"

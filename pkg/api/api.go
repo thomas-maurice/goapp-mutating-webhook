@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/mutator"
 )
 
@@ -36,6 +37,8 @@ func NewAPI(logger *slog.Logger) (*Api, error) {
 	a.engine.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{})
 	})
+
+	metrics.MetricsMiddleware.Use(a.engine)
 
 	return a, nil
 }

@@ -14,12 +14,14 @@ func GetLogger() *slog.Logger {
 	if os.Getenv("LOG_FORMAT") == "json" {
 		formatter = log.JSONFormatter
 	}
+
 	l := log.NewWithOptions(os.Stderr, log.Options{
 		TimeFormat:      time.RFC3339,
 		ReportTimestamp: true,
 		ReportCaller:    true,
 		Formatter:       formatter,
 	})
+
 	return slog.New(l)
 }
 
@@ -28,5 +30,6 @@ func LogFromContext(ctx context.Context) *slog.Logger {
 	if ok {
 		return lg
 	}
+
 	return GetLogger()
 }
