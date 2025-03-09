@@ -1,0 +1,26 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "goapp-mutating-webhook.fullname" . }}-selfsigned
+  labels:
+    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "goapp-mutating-webhook.fullname" . }}
+  labels:
+    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "goapp-mutating-webhook.fullname" . }}-certificate
+  dnsNames:
+  - {{ include "goapp-mutating-webhook.fullname" . }}
+  - {{ include "goapp-mutating-webhook.fullname" . }}.{{ .Release.Namespace }}
+  - {{ include "goapp-mutating-webhook.fullname" . }}.{{ .Release.Namespace }}.svc
+  - {{ include "goapp-mutating-webhook.fullname" . }}.{{ .Release.Namespace }}.svc.cluster
+  - {{ include "goapp-mutating-webhook.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    name: {{ include "goapp-mutating-webhook.fullname" . }}-selfsigned

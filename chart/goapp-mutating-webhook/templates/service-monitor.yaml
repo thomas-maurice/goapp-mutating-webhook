@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "goapp-mutating-webhook.fullname" . }}-selfsigned
+  labels:
+    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+    {{- toYaml .Values.serviceMonitor.extraLabels | nindent 4 }}
+spec:
+  endpoints:
+  - interval: 15s
+    targetPort: 443
+    path: /metrics
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      {{- include "goapp-mutating-webhook.selectorLabels" . | nindent 4 }}

@@ -11,7 +11,7 @@ mutating-webhook: bin
 
 .PHONY: docker
 docker:
-	docker build -t mutating-webhook:latest .
+	docker build -t mauricethomas/goapp-mutating-webhook:latest .
 
 .PHONY: kind
 kind:

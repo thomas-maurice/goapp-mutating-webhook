@@ -1,0 +1,30 @@
+kind: MutatingWebhookConfiguration
+apiVersion: admissionregistration.k8s.io/v1
+metadata:
+  name: {{ include "goapp-mutating-webhook.fullname" . }}
+  labels:
+    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "goapp-mutating-webhook.fullname" . }}
+webhooks:
+  - name: mutating-webhook.mutating-webhook.svc.cluster.local
+    failurePolicy: {{ .Values.webhookConfiguration.failurePolicy }}
+    reinvocationPolicy: {{ .Values.webhookConfiguration.reinvocationPolicy }}
+    objectSelector:
+    {{- with .Values.webhookConfiguration.objectSelector }}
+    {{ toYaml . | nindent 6 }}
+    {{- end }}
+    clientConfig:
+      service:
+        namespace: {{ .Release.Namespace }}
+        name: {{ include "goapp-mutating-webhook.fullname" . }}
+        path: /mutate
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations:
+        - "CREATE"
+        scope: Namespaced
+    sideEffects: None
+    admissionReviewVersions: ["v1"]

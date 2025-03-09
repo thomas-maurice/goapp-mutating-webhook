@@ -2,6 +2,10 @@
 
 Inject `GOMAXPROCS` and `GOMEMLIMIT` dynamically into your Go containers based on the resources requirements from the deployment spec.
 
+## Install with Helm
+
+A helm chart is provided in `chart/goapp-mutating-webhook` and a docker image `mauricethomas/goapp-mutating-webhook` is available on [Docker hub](https://hub.docker.com/r/mauricethomas/goapp-mutating-webhook)
+
 ## Build
 
 Compile the Docker image like so:
