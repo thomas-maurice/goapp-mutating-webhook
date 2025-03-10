@@ -1,0 +1,541 @@
+definitions:
+  runtime.RawExtension:
+    type: object
+  v1.AdmissionRequest:
+    properties:
+      dryRun:
+        description: |-
+          DryRun indicates that modifications will definitely not be persisted for this request.
+          Defaults to false.
+          +optional
+        type: boolean
+      kind:
+        allOf:
+        - $ref: '#/definitions/v1.GroupVersionKind'
+        description: Kind is the fully-qualified type of object being submitted (for
+          example, v1.Pod or autoscaling.v1.Scale)
+      name:
+        description: |-
+          Name is the name of the object as presented in the request.  On a CREATE operation, the client may omit name and
+          rely on the server to generate the name.  If that is the case, this field will contain an empty string.
+          +optional
+        type: string
+      namespace:
+        description: |-
+          Namespace is the namespace associated with the request (if any).
+          +optional
+        type: string
+      object:
+        allOf:
+        - $ref: '#/definitions/runtime.RawExtension'
+        description: |-
+          Object is the object from the incoming request.
+          +optional
+      oldObject:
+        allOf:
+        - $ref: '#/definitions/runtime.RawExtension'
+        description: |-
+          OldObject is the existing object. Only populated for DELETE and UPDATE requests.
+          +optional
+      operation:
+        allOf:
+        - $ref: '#/definitions/v1.Operation'
+        description: |-
+          Operation is the operation being performed. This may be different than the operation
+          requested. e.g. a patch can result in either a CREATE or UPDATE Operation.
+      options:
+        allOf:
+        - $ref: '#/definitions/runtime.RawExtension'
+        description: |-
+          Options is the operation option structure of the operation being performed.
+          e.g. `meta.k8s.io/v1.DeleteOptions` or `meta.k8s.io/v1.CreateOptions`. This may be
+          different than the options the caller provided. e.g. for a patch request the performed
+          Operation might be a CREATE, in which case the Options will a
+          `meta.k8s.io/v1.CreateOptions` even though the caller provided `meta.k8s.io/v1.PatchOptions`.
+          +optional
+      requestKind:
+        allOf:
+        - $ref: '#/definitions/v1.GroupVersionKind'
+        description: |-
+          RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
+          If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
+
+          For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
+          `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
+          an API request to apps/v1beta1 deployments would be converted and sent to the webhook
+          with `kind: {group:"apps", version:"v1", kind:"Deployment"}` (matching the rule the webhook registered for),
+          and `requestKind: {group:"apps", version:"v1beta1", kind:"Deployment"}` (indicating the kind of the original API request).
+
+          See documentation for the "matchPolicy" field in the webhook configuration type for more details.
+          +optional
+      requestResource:
+        allOf:
+        - $ref: '#/definitions/v1.GroupVersionResource'
+        description: |-
+          RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
+          If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
+
+          For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
+          `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
+          an API request to apps/v1beta1 deployments would be converted and sent to the webhook
+          with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
+          and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
+
+          See documentation for the "matchPolicy" field in the webhook configuration type.
+          +optional
+      requestSubResource:
+        description: |-
+          RequestSubResource is the name of the subresource of the original API request, if any (for example, "status" or "scale")
+          If this is specified and differs from the value in "subResource", an equivalent match and conversion was performed.
+          See documentation for the "matchPolicy" field in the webhook configuration type.
+          +optional
+        type: string
+      resource:
+        allOf:
+        - $ref: '#/definitions/v1.GroupVersionResource'
+        description: Resource is the fully-qualified resource being requested (for
+          example, v1.pods)
+      subResource:
+        description: |-
+          SubResource is the subresource being requested, if any (for example, "status" or "scale")
+          +optional
+        type: string
+      uid:
+        description: |-
+          UID is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
+          otherwise identical (parallel requests, requests when earlier requests did not modify etc)
+          The UID is meant to track the round trip (request/response) between the KAS and the WebHook, not the user request.
+          It is suitable for correlating log entries between the webhook and apiserver, for either auditing or debugging.
+        type: string
+      userInfo:
+        allOf:
+        - $ref: '#/definitions/v1.UserInfo'
+        description: UserInfo is information about the requesting user
+    type: object
+  v1.AdmissionResponse:
+    properties:
+      allowed:
+        description: Allowed indicates whether or not the admission request was permitted.
+        type: boolean
+      auditAnnotations:
+        additionalProperties:
+          type: string
+        description: |-
+          AuditAnnotations is an unstructured key value map set by remote admission controller (e.g. error=image-blacklisted).
+          MutatingAdmissionWebhook and ValidatingAdmissionWebhook admission controller will prefix the keys with
+          admission webhook name (e.g. imagepolicy.example.com/error=image-blacklisted). AuditAnnotations will be provided by
+          the admission webhook to add additional context to the audit log for this request.
+          +optional
+        type: object
+      patch:
+        description: |-
+          The patch body. Currently we only support "JSONPatch" which implements RFC 6902.
+          +optional
+        items:
+          type: integer
+        type: array
+      patchType:
+        allOf:
+        - $ref: '#/definitions/v1.PatchType'
+        description: |-
+          The type of Patch. Currently we only allow "JSONPatch".
+          +optional
+      status:
+        allOf:
+        - $ref: '#/definitions/v1.Status'
+        description: |-
+          Result contains extra details into why an admission request was denied.
+          This field IS NOT consulted in any way if "Allowed" is "true".
+          +optional
+      uid:
+        description: |-
+          UID is an identifier for the individual request/response.
+          This must be copied over from the corresponding AdmissionRequest.
+        type: string
+      warnings:
+        description: |-
+          warnings is a list of warning messages to return to the requesting API client.
+          Warning messages describe a problem the client making the API request should correct or be aware of.
+          Limit warnings to 120 characters if possible.
+          Warnings over 256 characters and large numbers of warnings may be truncated.
+          +optional
+        items:
+          type: string
+        type: array
+    type: object
+  v1.AdmissionReview:
+    properties:
+      apiVersion:
+        description: |-
+          APIVersion defines the versioned schema of this representation of an object.
+          Servers should convert recognized schemas to the latest internal value, and
+          may reject unrecognized values.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          +optional
+        type: string
+      kind:
+        description: |-
+          Kind is a string value representing the REST resource this object represents.
+          Servers may infer this from the endpoint the client submits requests to.
+          Cannot be updated.
+          In CamelCase.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          +optional
+        type: string
+      request:
+        allOf:
+        - $ref: '#/definitions/v1.AdmissionRequest'
+        description: |-
+          Request describes the attributes for the admission request.
+          +optional
+      response:
+        allOf:
+        - $ref: '#/definitions/v1.AdmissionResponse'
+        description: |-
+          Response describes the attributes for the admission response.
+          +optional
+    type: object
+  v1.CauseType:
+    enum:
+    - FieldValueNotFound
+    - FieldValueRequired
+    - FieldValueDuplicate
+    - FieldValueInvalid
+    - FieldValueNotSupported
+    - FieldValueForbidden
+    - FieldValueTooLong
+    - FieldValueTooMany
+    - InternalError
+    - FieldValueTypeInvalid
+    - UnexpectedServerResponse
+    - FieldManagerConflict
+    - ResourceVersionTooLarge
+    type: string
+    x-enum-varnames:
+    - CauseTypeFieldValueNotFound
+    - CauseTypeFieldValueRequired
+    - CauseTypeFieldValueDuplicate
+    - CauseTypeFieldValueInvalid
+    - CauseTypeFieldValueNotSupported
+    - CauseTypeForbidden
+    - CauseTypeTooLong
+    - CauseTypeTooMany
+    - CauseTypeInternal
+    - CauseTypeTypeInvalid
+    - CauseTypeUnexpectedServerResponse
+    - CauseTypeFieldManagerConflict
+    - CauseTypeResourceVersionTooLarge
+  v1.GroupVersionKind:
+    properties:
+      group:
+        type: string
+      kind:
+        type: string
+      version:
+        type: string
+    type: object
+  v1.GroupVersionResource:
+    properties:
+      group:
+        type: string
+      resource:
+        type: string
+      version:
+        type: string
+    type: object
+  v1.ListMeta:
+    properties:
+      continue:
+        description: |-
+          continue may be set if the user set a limit on the number of items returned, and indicates that
+          the server has more data available. The value is opaque and may be used to issue another request
+          to the endpoint that served this list to retrieve the next set of available objects. Continuing a
+          consistent list may not be possible if the server configuration has changed or more than a few
+          minutes have passed. The resourceVersion field returned when using this continue value will be
+          identical to the value in the first response, unless you have received this token from an error
+          message.
+        type: string
+      remainingItemCount:
+        description: |-
+          remainingItemCount is the number of subsequent items in the list which are not included in this
+          list response. If the list request contained label or field selectors, then the number of
+          remaining items is unknown and the field will be left unset and omitted during serialization.
+          If the list is complete (either because it is not chunking or because this is the last chunk),
+          then there are no more remaining items and this field will be left unset and omitted during
+          serialization.
+          Servers older than v1.15 do not set this field.
+          The intended use of the remainingItemCount is *estimating* the size of a collection. Clients
+          should not rely on the remainingItemCount to be set or to be exact.
+          +optional
+        type: integer
+      resourceVersion:
+        description: |-
+          String that identifies the server's internal version of this object that
+          can be used by clients to determine when objects have changed.
+          Value must be treated as opaque by clients and passed unmodified back to the server.
+          Populated by the system.
+          Read-only.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+          +optional
+        type: string
+      selfLink:
+        description: |-
+          Deprecated: selfLink is a legacy read-only field that is no longer populated by the system.
+          +optional
+        type: string
+    type: object
+  v1.Operation:
+    enum:
+    - CREATE
+    - UPDATE
+    - DELETE
+    - CONNECT
+    type: string
+    x-enum-varnames:
+    - Create
+    - Update
+    - Delete
+    - Connect
+  v1.PatchType:
+    enum:
+    - JSONPatch
+    type: string
+    x-enum-varnames:
+    - PatchTypeJSONPatch
+  v1.Status:
+    properties:
+      apiVersion:
+        description: |-
+          APIVersion defines the versioned schema of this representation of an object.
+          Servers should convert recognized schemas to the latest internal value, and
+          may reject unrecognized values.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          +optional
+        type: string
+      code:
+        description: |-
+          Suggested HTTP return code for this status, 0 if not set.
+          +optional
+        type: integer
+      details:
+        allOf:
+        - $ref: '#/definitions/v1.StatusDetails'
+        description: |-
+          Extended data associated with the reason.  Each reason may define its
+          own extended details. This field is optional and the data returned
+          is not guaranteed to conform to any schema except that defined by
+          the reason type.
+          +optional
+          +listType=atomic
+      kind:
+        description: |-
+          Kind is a string value representing the REST resource this object represents.
+          Servers may infer this from the endpoint the client submits requests to.
+          Cannot be updated.
+          In CamelCase.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          +optional
+        type: string
+      message:
+        description: |-
+          A human-readable description of the status of this operation.
+          +optional
+        type: string
+      metadata:
+        allOf:
+        - $ref: '#/definitions/v1.ListMeta'
+        description: |-
+          Standard list metadata.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          +optional
+      reason:
+        allOf:
+        - $ref: '#/definitions/v1.StatusReason'
+        description: |-
+          A machine-readable description of why this operation is in the
+          "Failure" status. If this value is empty there
+          is no information available. A Reason clarifies an HTTP status
+          code but does not override it.
+          +optional
+      status:
+        description: |-
+          Status of the operation.
+          One of: "Success" or "Failure".
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+          +optional
+        type: string
+    type: object
+  v1.StatusCause:
+    properties:
+      field:
+        description: |-
+          The field of the resource that has caused this error, as named by its JSON
+          serialization. May include dot and postfix notation for nested attributes.
+          Arrays are zero-indexed.  Fields may appear more than once in an array of
+          causes due to fields having multiple errors.
+          Optional.
+
+          Examples:
+            "name" - the field "name" on the current resource
+            "items[0].name" - the field "name" on the first array entry in "items"
+          +optional
+        type: string
+      message:
+        description: |-
+          A human-readable description of the cause of the error.  This field may be
+          presented as-is to a reader.
+          +optional
+        type: string
+      reason:
+        allOf:
+        - $ref: '#/definitions/v1.CauseType'
+        description: |-
+          A machine-readable description of the cause of the error. If this value is
+          empty there is no information available.
+          +optional
+    type: object
+  v1.StatusDetails:
+    properties:
+      causes:
+        description: |-
+          The Causes array includes more details associated with the StatusReason
+          failure. Not all StatusReasons may provide detailed causes.
+          +optional
+          +listType=atomic
+        items:
+          $ref: '#/definitions/v1.StatusCause'
+        type: array
+      group:
+        description: |-
+          The group attribute of the resource associated with the status StatusReason.
+          +optional
+        type: string
+      kind:
+        description: |-
+          The kind attribute of the resource associated with the status StatusReason.
+          On some operations may differ from the requested resource Kind.
+          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          +optional
+        type: string
+      name:
+        description: |-
+          The name attribute of the resource associated with the status StatusReason
+          (when there is a single name which can be described).
+          +optional
+        type: string
+      retryAfterSeconds:
+        description: |-
+          If specified, the time in seconds before the operation should be retried. Some errors may indicate
+          the client must take an alternate action - for those errors this field may indicate how long to wait
+          before taking the alternate action.
+          +optional
+        type: integer
+      uid:
+        description: |-
+          UID of the resource.
+          (when there is a single resource which can be described).
+          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids
+          +optional
+        type: string
+    type: object
+  v1.StatusReason:
+    enum:
+    - ""
+    - Unauthorized
+    - Forbidden
+    - NotFound
+    - AlreadyExists
+    - Conflict
+    - Gone
+    - Invalid
+    - ServerTimeout
+    - StorageReadError
+    - Timeout
+    - TooManyRequests
+    - BadRequest
+    - MethodNotAllowed
+    - NotAcceptable
+    - RequestEntityTooLarge
+    - UnsupportedMediaType
+    - InternalError
+    - Expired
+    - ServiceUnavailable
+    type: string
+    x-enum-varnames:
+    - StatusReasonUnknown
+    - StatusReasonUnauthorized
+    - StatusReasonForbidden
+    - StatusReasonNotFound
+    - StatusReasonAlreadyExists
+    - StatusReasonConflict
+    - StatusReasonGone
+    - StatusReasonInvalid
+    - StatusReasonServerTimeout
+    - StatusReasonStoreReadError
+    - StatusReasonTimeout
+    - StatusReasonTooManyRequests
+    - StatusReasonBadRequest
+    - StatusReasonMethodNotAllowed
+    - StatusReasonNotAcceptable
+    - StatusReasonRequestEntityTooLarge
+    - StatusReasonUnsupportedMediaType
+    - StatusReasonInternalError
+    - StatusReasonExpired
+    - StatusReasonServiceUnavailable
+  v1.UserInfo:
+    properties:
+      extra:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: |-
+          Any additional information provided by the authenticator.
+          +optional
+        type: object
+      groups:
+        description: |-
+          The names of groups this user is a part of.
+          +optional
+          +listType=atomic
+        items:
+          type: string
+        type: array
+      uid:
+        description: |-
+          A unique value that identifies this user across time. If this user is
+          deleted and another user by the same name is added, they will have
+          different UIDs.
+          +optional
+        type: string
+      username:
+        description: |-
+          The name that uniquely identifies this user among all active users.
+          +optional
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /mutate:
+    post:
+      consumes:
+      - application/json
+      description: Modifies the pod spec of a pod, and returns an appropriate admission
+        object
+      parameters:
+      - description: Input model
+        in: body
+        name: review_request
+        required: true
+        schema:
+          $ref: '#/definitions/v1.AdmissionReview'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.AdmissionReview'
+      summary: Mutates a pod passed through an admission request
+swagger: "2.0"

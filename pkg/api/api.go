@@ -7,11 +7,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	_ "github.com/thomas-maurice/goapp-mutating-webhook/docs"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/mutator"
+
+	admissionv1 "k8s.io/api/admission/v1"
 )
+
+var _ = admissionv1.AdmissionReview{}
 
 type Api struct {
 	logger *slog.Logger
@@ -41,11 +48,24 @@ func NewAPI(logger *slog.Logger, config *config.Config) (*Api, error) {
 		ctx.JSON(200, gin.H{})
 	})
 
+	a.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
 	metrics.MetricsMiddleware.Use(a.engine)
 
 	return a, nil
 }
 
+// @BasePath /
+
+// Mutate godoc
+// @Summary Mutates a pod passed through an admission request
+// @Schemes http https
+// @Description Modifies the pod spec of a pod, and returns an appropriate admission object
+// @Accept json
+// @Produce json
+// @Param review_request body admissionv1.AdmissionReview true "Input model"
+// @Success 200 {object} admissionv1.AdmissionReview
+// @Router /mutate [post]
 func (a *Api) Mutate(ctx *gin.Context) {
 	ctx.Set("logger", log.GetLogger().With())
 

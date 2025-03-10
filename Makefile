@@ -32,6 +32,10 @@ cert-manager:
 	helm repo update
 	helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version v1.17.0 --set crds.enabled=true
 
+.PHONY: swag
+swag:
+	swag init --parseDependency
+
 .PHONY: prometheus
 prometheus:
 	kubectl config use-context kind-kind

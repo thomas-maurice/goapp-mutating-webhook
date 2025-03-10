@@ -1,0 +1,3 @@
+---
+# Factor by which multiply the requests
+go_mem_limit_factor: 0.95
