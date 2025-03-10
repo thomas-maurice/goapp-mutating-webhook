@@ -1,56 +1,45 @@
 replicaCount: 3
-
 image:
   repository: mauricethomas/goapp-mutating-webhook
   pullPolicy: IfNotPresent
-  tag: "latest"
-
+  tag: latest
 imagePullSecrets: []
-
 nameOverride: ""
 fullnameOverride: ""
-
 config:
   go_mem_limit_factor: 0.95
-
 serviceMonitor:
   extraLabels:
     release: prometheus
-
 webhookConfiguration:
   failurePolicy: Ignore
   reinvocationPolicy: IfNeeded
   objectSelector:
     matchExpressions:
-    - key: "mutate"
-      operator: "In"
-      values:
-      - "true"
-
+      - key: mutate
+        operator: In
+        values:
+          - "true"
 serviceAccount:
   create: true
   automount: true
   annotations: {}
   name: ""
-
 podAnnotations: {}
 podLabels: {}
-
 podSecurityContext: {}
-  # fsGroup: 2000
+# fsGroup: 2000
 
 securityContext:
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 1000
-
 service:
   type: ClusterIP
   port: 443
-
 resources:
   limits:
     cpu: 100m
@@ -58,7 +47,6 @@ resources:
   requests:
     cpu: 100m
     memory: 128Mi
-
 startupProbe:
   httpGet:
     path: /healthz
@@ -66,7 +54,6 @@ startupProbe:
     scheme: HTTPS
   periodSeconds: 5
   failureThreshold: 3
-
 livenessProbe:
   httpGet:
     path: /healthz
@@ -74,7 +61,6 @@ livenessProbe:
     scheme: HTTPS
   periodSeconds: 5
   failureThreshold: 3
-
 readinessProbe:
   httpGet:
     path: /healthz
@@ -83,11 +69,9 @@ readinessProbe:
   periodSeconds: 5
   failureThreshold: 3
   successThreshold: 3
-
-nodeSelector:
-  # image is not compiled for arm64 yet
-  kubernetes.io/arch: "amd64"
+nodeSelector: {}
+# image is not compiled for arm64 yet
+# kubernetes.io/arch: "amd64"
 
 tolerations: []
-
 affinity: {}

@@ -19,7 +19,7 @@ kind:
 
 .PHONY: load-image
 load-image:
-	kind load docker-image mutating-webhook:latest
+	kind load docker-image mauricethomas/goapp-mutating-webhook:latest
 
 .PHONY: apply
 apply:
