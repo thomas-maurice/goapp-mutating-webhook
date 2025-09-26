@@ -5,14 +5,17 @@ import (
 
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/api"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sclient"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 )
 
 var (
-	flagAddr   string
-	flagKey    string
-	flagCert   string
-	flagConfig string
+	flagAddr       string
+	flagKey        string
+	flagCert       string
+	flagConfig     string
+	flagInCluster  bool
+	flagKubeConfig string
 )
 
 func init() {
@@ -20,6 +23,8 @@ func init() {
 	flag.StringVar(&flagCert, "cert", "cert.pem", "Certificate to use")
 	flag.StringVar(&flagKey, "key", "key.pem", "Key to use")
 	flag.StringVar(&flagConfig, "config", "config.yaml", "Config file to use")
+	flag.BoolVar(&flagInCluster, "in-cluster", false, "Are we running in cluster ?")
+	flag.StringVar(&flagKubeConfig, "kubeconfig", "", "Path to the kube config")
 }
 
 func main() {
@@ -30,7 +35,12 @@ func main() {
 		panic(err)
 	}
 
-	api, err := api.NewAPI(log.GetLogger(), cfg)
+	restConfig, err := k8sclient.GetConfig(flagInCluster, flagKubeConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	api, err := api.NewAPI(log.GetLogger(), cfg, restConfig)
 	if err != nil {
 		panic(err)
 	}

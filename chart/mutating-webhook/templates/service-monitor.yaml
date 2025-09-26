@@ -1,9 +1,9 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "goapp-mutating-webhook.fullname" . }}-selfsigned
+  name: {{ include "mutating-webhook.fullname" . }}-selfsigned
   labels:
-    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+    {{- include "mutating-webhook.labels" . | nindent 4 }}
     {{- toYaml .Values.serviceMonitor.extraLabels | nindent 4 }}
 spec:
   endpoints:
@@ -15,4 +15,4 @@ spec:
       insecureSkipVerify: true
   selector:
     matchLabels:
-      {{- include "goapp-mutating-webhook.selectorLabels" . | nindent 4 }}
+      {{- include "mutating-webhook.selectorLabels" . | nindent 4 }}

@@ -1,5 +1,5 @@
 apiVersion: v2
-name: goapp-mutating-webhook
+name: mutating-webhook
 description: Go applications mutating webhook
 
 # A chart can be either an 'application' or a 'library' chart.

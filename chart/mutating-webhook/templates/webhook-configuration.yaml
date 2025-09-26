@@ -1,11 +1,11 @@
 kind: MutatingWebhookConfiguration
 apiVersion: admissionregistration.k8s.io/v1
 metadata:
-  name: {{ include "goapp-mutating-webhook.fullname" . }}
+  name: {{ include "mutating-webhook.fullname" . }}
   labels:
-    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+    {{- include "mutating-webhook.labels" . | nindent 4 }}
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "goapp-mutating-webhook.fullname" . }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "mutating-webhook.fullname" . }}
 webhooks:
   - name: mutating-webhook.mutating-webhook.svc.cluster.local
     failurePolicy: {{ .Values.webhookConfiguration.failurePolicy }}
@@ -17,7 +17,7 @@ webhooks:
     clientConfig:
       service:
         namespace: {{ .Release.Namespace }}
-        name: {{ include "goapp-mutating-webhook.fullname" . }}
+        name: {{ include "mutating-webhook.fullname" . }}
         path: /mutate
     rules:
       - apiGroups: [""]

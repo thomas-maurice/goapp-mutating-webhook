@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "goapp-mutating-webhook.fullname" . }}
+  name: {{ include "mutating-webhook.fullname" . }}
   labels:
-    {{- include "goapp-mutating-webhook.labels" . | nindent 4 }}
+    {{- include "mutating-webhook.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "goapp-mutating-webhook.selectorLabels" . | nindent 6 }}
+      {{- include "mutating-webhook.selectorLabels" . | nindent 6 }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,7 +22,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "goapp-mutating-webhook.labels" . | nindent 8 }}
+        {{- include "mutating-webhook.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -31,7 +31,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "goapp-mutating-webhook.serviceAccountName" . }}
+      serviceAccountName: {{ include "mutating-webhook.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -72,10 +72,10 @@ spec:
       volumes:
         - name: certificate
           secret:
-            secretName: {{ include "goapp-mutating-webhook.fullname" . }}-certificate
+            secretName: {{ include "mutating-webhook.fullname" . }}-certificate
         - name: config
           configMap:
-            name: {{ include "goapp-mutating-webhook.fullname" . }}-config
+            name: {{ include "mutating-webhook.fullname" . }}-config
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

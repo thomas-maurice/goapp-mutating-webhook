@@ -6,18 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
-var (
-	codecs = serializer.NewCodecFactory(runtime.NewScheme())
-)
-
-// GetAdmissionReview will parse the incoming request and validate it is actually the correct type we expect
-func GetAdmissionReview(ctx *gin.Context) (*admissionv1.AdmissionReview, error) {
-	deserializer := codecs.UniversalDeserializer()
-
+// DecodeAdmissionReview will parse the incoming request.
+func DecodeAdmissionReview(ctx *gin.Context) (*admissionv1.AdmissionReview, error) {
 	if ctx.Request.Header.Get("Content-Type") != "application/json" {
 		return nil, fmt.Errorf("expected application/json content-type")
 	}

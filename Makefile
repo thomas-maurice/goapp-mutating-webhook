@@ -32,13 +32,27 @@ cert-manager:
 	helm repo update
 	helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version v1.17.0 --set crds.enabled=true
 
-.PHONY: swag
-swag:
-	swag init --parseDependency
-
 .PHONY: prometheus
 prometheus:
 	kubectl config use-context kind-kind
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
-	helm install prometheus --namespace prometheus --create-namespace prometheus-community/kube-prometheus-stack
+	helm install prometheus --namespace prometheus \
+		--create-namespace prometheus-community/kube-prometheus-stack \
+		--set prometheus.prometheusSpec.maximumStartupDurationSeconds=60 \
+		--set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+
+.PHONY: install
+install:
+	kubectl config use-context kind-kind
+	helm install mutating-webhook ./chart/goapp-mutating-webhook \
+		--create-namespace \
+		--namespace mutating-webhook \
+		--set imagePullPolicy=IfNotPresent
+
+.PHONY: upgrade
+upgrade:
+	kubectl config use-context kind-kind
+	helm upgrade mutating-webhook ./chart/goapp-mutating-webhook \
+		--namespace mutating-webhook \
+		--set imagePullPolicy=IfNotPresent
