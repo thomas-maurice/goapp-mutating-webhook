@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,28 +11,55 @@ import (
 	sloggin "github.com/samber/slog-gin"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sclient"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sconfig"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/mutator"
+	mapper "github.com/thomas-maurice/goapp-mutating-webhook/pkg/restmapper"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 )
 
 type Api struct {
-	logger *slog.Logger
-	Engine *gin.Engine
-	config *config.Config
+	logger     *slog.Logger
+	Engine     *gin.Engine
+	config     *config.Config
+	restConfig *rest.Config
+	k8sClient  kubernetes.Interface
 
 	restMapper *restmapper.DeferredDiscoveryRESTMapper
 
 	RegisterHooksFunc func(ctx context.Context) error
 }
 
-func NewAPI(logger *slog.Logger, config *config.Config, restConfig *rest.Config) (*Api, error) {
-	restMapper, err := mutator.NewRESTMapper(restConfig)
+type EngineKey struct{}
+
+var ginEngineKey = EngineKey{}
+
+func EngineToContext(ctx context.Context, engine *gin.Engine) context.Context {
+	return context.WithValue(ctx, ginEngineKey, engine)
+}
+
+func EngineFromContext(ctx context.Context) (*gin.Engine, error) {
+	engine, ok := ctx.Value(ginEngineKey).(*gin.Engine)
+	if !ok {
+		return nil, fmt.Errorf("failed to extract *gin.Engine from context")
+	}
+
+	return engine, nil
+}
+
+func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*Api, error) {
+	restMapper, err := mapper.GetRESTMapper(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := k8sclient.GetClient(restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +67,10 @@ func NewAPI(logger *slog.Logger, config *config.Config, restConfig *rest.Config)
 	a := &Api{
 		logger:     logger,
 		Engine:     gin.New(),
-		config:     config,
+		config:     cfg,
 		restMapper: restMapper,
+		restConfig: restConfig,
+		k8sClient:  client,
 	}
 
 	a.Engine.Use(gin.Recovery())
@@ -54,20 +82,14 @@ func NewAPI(logger *slog.Logger, config *config.Config, restConfig *rest.Config)
 		WithResponseHeader: false,
 	}))
 
-	/*RegisterMutationHook(a.Engine, a.config, restMapper, "/mutate", []mutator.Mutation[*corev1.Pod]{
-		mutator.PodMutation{},
-	})*/
-
-	/*RegisterMutationHook(a.Engine, a.config, restMapper, "/mutate", []mutator.Mutation[*unstructured.Unstructured]{
-		mutator.UnstructuredMutation{},
-	})*/
+	ctx := context.Background()
 
 	//nolint:staticcheck
-	ctx := context.WithValue(context.Background(), "xxx-config-xxx", config)
-	//nolint:staticcheck
-	ctx = context.WithValue(ctx, "xxx-restmapper-xxx", restMapper)
-	//nolint:staticcheck
-	ctx = context.WithValue(ctx, "xxx-engine-xxx", a.Engine)
+	ctx = config.ToContext(ctx, cfg)
+	ctx = k8sclient.ToContext(ctx, client)
+	ctx = k8sconfig.ToContext(ctx, restConfig)
+	ctx = mapper.ToContext(ctx, restMapper)
+	ctx = EngineToContext(ctx, a.Engine)
 
 	err = RegisterMutationHookContext(ctx, "/mutate", []mutator.Mutation[*unstructured.Unstructured]{
 		mutator.UnstructuredMutation{},
@@ -92,88 +114,29 @@ func NewAPI(logger *slog.Logger, config *config.Config, restConfig *rest.Config)
 	return a, nil
 }
 
-func RegisterMutationHook[T runtime.Object](
-	engine *gin.Engine,
-	cfg *config.Config,
-	restMapper *restmapper.DeferredDiscoveryRESTMapper,
-	apiPath string,
-	hooks []mutator.Mutation[T],
-) error {
-	k8sClient, err := k8sclient.GetClient(true, "")
-	if err != nil {
-		panic(err)
-	}
-
-	engine.POST(apiPath, func(ctx *gin.Context) {
-		mutCtx := log.ToContext(ctx, log.GetLogger())
-		mutCtx = k8sclient.ToContext(mutCtx, k8sClient)
-
-		admissionReview, err := mutator.DecodeAdmissionReview(ctx)
-		if err != nil {
-			ctx.Status(http.StatusBadRequest)
-			fmt.Fprintf(ctx.Writer, "bad request: %s", err)
-
-			return
-		}
-
-		obj, _, err := mutator.CheckAndDecodeRequest[T](admissionReview, restMapper)
-		if err != nil {
-			panic(err)
-		}
-
-		response, err := mutator.Mutate(mutCtx, cfg, admissionReview, obj, hooks)
-		if err != nil {
-			ctx.Status(http.StatusBadRequest)
-			fmt.Fprintf(ctx.Writer, "bad request: %s", err)
-
-			return
-		}
-
-		b, err := json.Marshal(&response)
-		if err != nil {
-			ctx.Status(http.StatusBadRequest)
-			//nolint:errcheck
-			fmt.Fprintf(ctx.Writer, "failed to marshal response: %s", err)
-
-			return
-		}
-
-		//nolint:errcheck
-		ctx.Writer.Write(b)
-	})
-
-	return nil
-}
-
 func RegisterMutationHookContext[T runtime.Object](
 	ctx context.Context,
 	apiPath string,
 	hooks []mutator.Mutation[T],
 ) error {
-	k8sClient, err := k8sclient.GetClient(true, "")
+	cfg, err := config.FromContext(ctx)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to get config form context: %w", err)
 	}
 
-	cfgCtx := ctx.Value("xxx-config-xxx")
-
-	cfg, ok := cfgCtx.(*config.Config)
-	if !ok {
-		return errors.New("failed to extract config from context")
+	restMapper, err := mapper.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get restmapper form context: %w", err)
 	}
 
-	restMapperCtx := ctx.Value("xxx-restmapper-xxx")
-
-	restMapper, ok := restMapperCtx.(*restmapper.DeferredDiscoveryRESTMapper)
-	if !ok {
-		return errors.New("failed to extract config from context")
+	engine, err := EngineFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get gin engine from context: %w", err)
 	}
 
-	engineCtx := ctx.Value("xxx-engine-xxx")
-
-	engine, ok := engineCtx.(*gin.Engine)
-	if !ok {
-		return errors.New("failed to extract config from context")
+	k8sClient, err := k8sclient.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes client from context: %w", err)
 	}
 
 	engine.POST(apiPath, func(ctx *gin.Context) {

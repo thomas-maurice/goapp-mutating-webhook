@@ -5,7 +5,7 @@ import (
 
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/api"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
-	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sclient"
+	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sconfig"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 )
 
@@ -35,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	restConfig, err := k8sclient.GetConfig(flagInCluster, flagKubeConfig)
+	restConfig, err := k8sconfig.GetConfig(flagInCluster, flagKubeConfig)
 	if err != nil {
 		panic(err)
 	}

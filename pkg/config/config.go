@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"os"
 
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
@@ -32,4 +33,23 @@ func GetConfigFromFile(fileName string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+type ConfigKey struct{}
+
+var (
+	configKey ConfigKey = ConfigKey{}
+)
+
+func FromContext(ctx context.Context) (*Config, error) {
+	cfg, ok := ctx.Value(configKey).(*Config)
+	if ok {
+		return cfg, nil
+	}
+
+	return nil, nil
+}
+
+func ToContext(ctx context.Context, cfg *Config) context.Context {
+	return context.WithValue(ctx, configKey, cfg)
 }
