@@ -26,7 +26,7 @@ import (
 
 type Api struct {
 	logger     *slog.Logger
-	Engine     *gin.Engine
+	engine     *gin.Engine
 	config     *config.Config
 	restConfig *rest.Config
 	k8sClient  kubernetes.Interface
@@ -66,15 +66,15 @@ func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*
 
 	a := &Api{
 		logger:     logger,
-		Engine:     gin.New(),
+		engine:     gin.New(),
 		config:     cfg,
 		restMapper: restMapper,
 		restConfig: restConfig,
 		k8sClient:  client,
 	}
 
-	a.Engine.Use(gin.Recovery())
-	a.Engine.Use(sloggin.NewWithConfig(logger, sloggin.Config{
+	a.engine.Use(gin.Recovery())
+	a.engine.Use(sloggin.NewWithConfig(logger, sloggin.Config{
 		WithRequestBody:    false,
 		WithUserAgent:      false,
 		WithRequestHeader:  false,
@@ -82,14 +82,22 @@ func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*
 		WithResponseHeader: false,
 	}))
 
-	ctx := context.Background()
+	a.engine.GET("/readyz", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{})
+	})
 
-	//nolint:staticcheck
+	a.engine.GET("/healthz", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{})
+	})
+
+	metrics.MetricsMiddleware.Use(a.engine)
+
+	ctx := context.Background()
 	ctx = config.ToContext(ctx, cfg)
 	ctx = k8sclient.ToContext(ctx, client)
 	ctx = k8sconfig.ToContext(ctx, restConfig)
 	ctx = mapper.ToContext(ctx, restMapper)
-	ctx = EngineToContext(ctx, a.Engine)
+	ctx = EngineToContext(ctx, a.engine)
 
 	err = RegisterMutationHookContext(ctx, "/mutate", []mutator.Mutation[*unstructured.Unstructured]{
 		mutator.UnstructuredMutation{},
@@ -104,12 +112,6 @@ func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*
 			return nil, err
 		}
 	}
-
-	a.Engine.GET("/healthz", func(ctx *gin.Context) {
-		ctx.JSON(200, gin.H{})
-	})
-
-	metrics.MetricsMiddleware.Use(a.Engine)
 
 	return a, nil
 }
@@ -180,5 +182,5 @@ func RegisterMutationHookContext[T runtime.Object](
 }
 
 func (a *Api) Serve(addr, cert, key string) error {
-	return a.Engine.RunTLS(addr, cert, key)
+	return a.engine.RunTLS(addr, cert, key)
 }
