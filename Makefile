@@ -21,9 +21,9 @@ kind:
 load-image:
 	kind load docker-image mauricethomas/goapp-mutating-webhook:latest
 
-.PHONY: apply
-apply:
-	kubectl apply -f deployment
+.PHONY: sample
+sample:
+	kubectl apply -f sample-app
 
 .PHONY: cert-manager
 cert-manager:
