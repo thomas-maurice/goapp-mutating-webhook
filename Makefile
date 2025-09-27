@@ -45,7 +45,7 @@ prometheus:
 .PHONY: install
 install:
 	kubectl config use-context kind-kind
-	helm install mutating-webhook ./chart/goapp-mutating-webhook \
+	helm install mutating-webhook ./chart/mutating-webhook \
 		--create-namespace \
 		--namespace mutating-webhook \
 		--set imagePullPolicy=IfNotPresent
@@ -53,6 +53,6 @@ install:
 .PHONY: upgrade
 upgrade:
 	kubectl config use-context kind-kind
-	helm upgrade mutating-webhook ./chart/goapp-mutating-webhook \
+	helm upgrade mutating-webhook ./chart/mutating-webhook \
 		--namespace mutating-webhook \
 		--set imagePullPolicy=IfNotPresent

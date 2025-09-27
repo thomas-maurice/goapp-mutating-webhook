@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
-	unstructuredMutation "github.com/thomas-maurice/goapp-mutating-webhook/pkg/contrib/mutations/unstructured"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sclient"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sconfig"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
@@ -18,7 +17,6 @@ import (
 	mapper "github.com/thomas-maurice/goapp-mutating-webhook/pkg/restmapper"
 	webhook "github.com/thomas-maurice/goapp-mutating-webhook/pkg/webhook"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -109,13 +107,6 @@ func NewAPI(
 	ctx = mapper.ToContext(ctx, restMapper)
 	ctx = config.ToContext(ctx, cfg)
 	ctx = EngineToContext(ctx, a.engine)
-
-	err = RegisterMutationHookContext(ctx, "/mutate", []webhook.Mutation[*unstructured.Unstructured]{
-		unstructuredMutation.UnstructuredMutation{},
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	if a.RegisterMutationsFunc != nil {
 		err = a.RegisterMutationsFunc(ctx)
