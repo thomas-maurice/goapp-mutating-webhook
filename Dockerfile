@@ -1,8 +1,9 @@
 FROM golang:alpine
 
 COPY . /go
+RUN cd /go
 RUN apk add --update ca-certificates
-RUN go get && go build -o mutating-webhook
+RUN go build -o /go/mutating-webhook ./example
 
 FROM scratch
 COPY --from=0 /etc/ssl /etc/ssl

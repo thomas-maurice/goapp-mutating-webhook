@@ -1,0 +1,26 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "mutating-webhook.fullname" . }}-selfsigned
+  labels:
+    {{- include "mutating-webhook.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "mutating-webhook.fullname" . }}
+  labels:
+    {{- include "mutating-webhook.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "mutating-webhook.fullname" . }}-certificate
+  dnsNames:
+  - {{ include "mutating-webhook.fullname" . }}
+  - {{ include "mutating-webhook.fullname" . }}.{{ .Release.Namespace }}
+  - {{ include "mutating-webhook.fullname" . }}.{{ .Release.Namespace }}.svc
+  - {{ include "mutating-webhook.fullname" . }}.{{ .Release.Namespace }}.svc.cluster
+  - {{ include "mutating-webhook.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    name: {{ include "mutating-webhook.fullname" . }}-selfsigned

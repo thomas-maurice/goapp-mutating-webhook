@@ -11,7 +11,7 @@ repos:
       - id: trailing-whitespace
         exclude: ^chart/.*$
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.64.6
+    rev: v2.5.0
     hooks:
       - id: golangci-lint
   - repo: https://github.com/dnephin/pre-commit-golang
