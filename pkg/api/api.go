@@ -10,12 +10,13 @@ import (
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/config"
+	unstructuredMutation "github.com/thomas-maurice/goapp-mutating-webhook/pkg/contrib/mutations/unstructured"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sclient"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/k8sconfig"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/log"
 	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/metrics"
-	"github.com/thomas-maurice/goapp-mutating-webhook/pkg/mutator"
 	mapper "github.com/thomas-maurice/goapp-mutating-webhook/pkg/restmapper"
+	webhook "github.com/thomas-maurice/goapp-mutating-webhook/pkg/webhook"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,16 +25,18 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
+type RegisterMutationsFunc func(ctx context.Context) error
+type RegisterAdmissionsFunc func(ctx context.Context) error
+
 type Api struct {
-	logger     *slog.Logger
-	engine     *gin.Engine
-	config     *config.Config
-	restConfig *rest.Config
-	k8sClient  kubernetes.Interface
-
-	restMapper *restmapper.DeferredDiscoveryRESTMapper
-
-	RegisterHooksFunc func(ctx context.Context) error
+	logger                 *slog.Logger
+	engine                 *gin.Engine
+	restConfig             *rest.Config
+	k8sClient              kubernetes.Interface
+	config                 *config.Config
+	restMapper             *restmapper.DeferredDiscoveryRESTMapper
+	RegisterMutationsFunc  RegisterMutationsFunc
+	RegisterAdmissionsFunc RegisterAdmissionsFunc
 }
 
 type EngineKey struct{}
@@ -53,7 +56,13 @@ func EngineFromContext(ctx context.Context) (*gin.Engine, error) {
 	return engine, nil
 }
 
-func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*Api, error) {
+func NewAPI(
+	logger *slog.Logger,
+	cfg *config.Config,
+	restConfig *rest.Config,
+	regMutFunc RegisterMutationsFunc,
+	regAdmFunc RegisterAdmissionsFunc,
+) (*Api, error) {
 	restMapper, err := mapper.GetRESTMapper(restConfig)
 	if err != nil {
 		return nil, err
@@ -65,12 +74,14 @@ func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*
 	}
 
 	a := &Api{
-		logger:     logger,
-		engine:     gin.New(),
-		config:     cfg,
-		restMapper: restMapper,
-		restConfig: restConfig,
-		k8sClient:  client,
+		logger:                 logger,
+		engine:                 gin.New(),
+		restMapper:             restMapper,
+		restConfig:             restConfig,
+		k8sClient:              client,
+		config:                 cfg,
+		RegisterMutationsFunc:  regMutFunc,
+		RegisterAdmissionsFunc: regAdmFunc,
 	}
 
 	a.engine.Use(gin.Recovery())
@@ -93,23 +104,30 @@ func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*
 	metrics.MetricsMiddleware.Use(a.engine)
 
 	ctx := context.Background()
-	ctx = config.ToContext(ctx, cfg)
 	ctx = k8sclient.ToContext(ctx, client)
 	ctx = k8sconfig.ToContext(ctx, restConfig)
 	ctx = mapper.ToContext(ctx, restMapper)
+	ctx = config.ToContext(ctx, cfg)
 	ctx = EngineToContext(ctx, a.engine)
 
-	err = RegisterMutationHookContext(ctx, "/mutate", []mutator.Mutation[*unstructured.Unstructured]{
-		mutator.UnstructuredMutation{},
+	err = RegisterMutationHookContext(ctx, "/mutate", []webhook.Mutation[*unstructured.Unstructured]{
+		unstructuredMutation.UnstructuredMutation{},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if a.RegisterHooksFunc != nil {
-		err = a.RegisterHooksFunc(ctx)
+	if a.RegisterMutationsFunc != nil {
+		err = a.RegisterMutationsFunc(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to register mutation functions: %w", err)
+		}
+	}
+
+	if a.RegisterAdmissionsFunc != nil {
+		err = a.RegisterAdmissionsFunc(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register admission functions: %w", err)
 		}
 	}
 
@@ -119,13 +137,8 @@ func NewAPI(logger *slog.Logger, cfg *config.Config, restConfig *rest.Config) (*
 func RegisterMutationHookContext[T runtime.Object](
 	ctx context.Context,
 	apiPath string,
-	hooks []mutator.Mutation[T],
+	hooks []webhook.Mutation[T],
 ) error {
-	cfg, err := config.FromContext(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get config form context: %w", err)
-	}
-
 	restMapper, err := mapper.FromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get restmapper form context: %w", err)
@@ -145,7 +158,7 @@ func RegisterMutationHookContext[T runtime.Object](
 		mutCtx := log.ToContext(ctx, log.GetLogger())
 		mutCtx = k8sclient.ToContext(mutCtx, k8sClient)
 
-		admissionReview, err := mutator.DecodeAdmissionReview(ctx)
+		admissionReview, err := webhook.DecodeAdmissionReview(ctx)
 		if err != nil {
 			ctx.Status(http.StatusBadRequest)
 			fmt.Fprintf(ctx.Writer, "bad request: %s", err)
@@ -153,12 +166,12 @@ func RegisterMutationHookContext[T runtime.Object](
 			return
 		}
 
-		obj, _, err := mutator.CheckAndDecodeRequest[T](admissionReview, restMapper)
+		obj, _, err := webhook.CheckAndDecodeRequest[T](admissionReview, restMapper)
 		if err != nil {
 			panic(err)
 		}
 
-		response, err := mutator.Mutate(mutCtx, cfg, admissionReview, obj, hooks)
+		response, err := webhook.Mutate(mutCtx, admissionReview, obj, hooks)
 		if err != nil {
 			ctx.Status(http.StatusBadRequest)
 			fmt.Fprintf(ctx.Writer, "bad request: %s", err)

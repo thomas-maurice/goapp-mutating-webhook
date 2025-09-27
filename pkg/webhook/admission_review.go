@@ -1,4 +1,4 @@
-package mutator
+package webhook
 
 import (
 	"fmt"
@@ -8,7 +8,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-// DecodeAdmissionReview will parse the incoming request.
+// DecodeAdmissionReview will parse the incoming aadmission request, and shit itself
+// if we cannot parse the incoming request.
 func DecodeAdmissionReview(ctx *gin.Context) (*admissionv1.AdmissionReview, error) {
 	if ctx.Request.Header.Get("Content-Type") != "application/json" {
 		return nil, fmt.Errorf("expected application/json content-type")

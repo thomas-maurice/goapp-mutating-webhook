@@ -7,7 +7,7 @@ bin:
 
 .PHONY: mutating-webhook
 mutating-webhook: bin
-	go build -o bin/mutating-webhook
+	go build -o bin/mutating-webhook ./example
 
 .PHONY: docker
 docker:

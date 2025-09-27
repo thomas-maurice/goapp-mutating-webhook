@@ -1,13 +1,14 @@
-package mutator
+package unstructured
 
 import (
 	"context"
 
+	mutator "github.com/thomas-maurice/goapp-mutating-webhook/pkg/webhook"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type UnstructuredMutation struct {
-	BaseMutation[*unstructured.Unstructured]
+	mutator.BaseMutation[*unstructured.Unstructured]
 }
 
 func (m UnstructuredMutation) Mutate(ctx context.Context, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {

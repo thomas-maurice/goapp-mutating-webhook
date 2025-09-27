@@ -30,17 +30,22 @@ func init() {
 func main() {
 	flag.Parse()
 
-	cfg, err := config.GetConfigFromFile(flagConfig)
-	if err != nil {
-		panic(err)
-	}
-
 	restConfig, err := k8sconfig.GetConfig(flagInCluster, flagKubeConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	api, err := api.NewAPI(log.GetLogger(), cfg, restConfig)
+	cfg, err := config.GetConfigFromFile(flagConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	api, err := api.NewAPI(log.GetLogger(),
+		cfg,
+		restConfig,
+		RegisterMutations,
+		RegisterAdmissions,
+	)
 	if err != nil {
 		panic(err)
 	}
