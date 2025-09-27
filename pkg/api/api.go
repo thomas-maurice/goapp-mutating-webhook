@@ -125,7 +125,7 @@ func NewAPI(
 	return a, nil
 }
 
-func RegisterMutationHookContext[T runtime.Object](
+func RegisterMutationHook[T runtime.Object](
 	ctx context.Context,
 	apiPath string,
 	hooks []webhook.Mutation[T],
@@ -163,6 +163,66 @@ func RegisterMutationHookContext[T runtime.Object](
 		}
 
 		response, err := webhook.Mutate(mutCtx, admissionReview, obj, hooks)
+		if err != nil {
+			ctx.Status(http.StatusBadRequest)
+			fmt.Fprintf(ctx.Writer, "bad request: %s", err)
+
+			return
+		}
+
+		b, err := json.Marshal(&response)
+		if err != nil {
+			ctx.Status(http.StatusBadRequest)
+			fmt.Fprintf(ctx.Writer, "failed to marshal response: %s", err)
+
+			return
+		}
+
+		//nolint:errcheck
+		ctx.Writer.Write(b)
+	})
+
+	return nil
+}
+
+func RegisterAdmissionHook[T runtime.Object](
+	ctx context.Context,
+	apiPath string,
+	hooks []webhook.Admission[T],
+) error {
+	restMapper, err := mapper.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get restmapper form context: %w", err)
+	}
+
+	engine, err := EngineFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get gin engine from context: %w", err)
+	}
+
+	k8sClient, err := k8sclient.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes client from context: %w", err)
+	}
+
+	engine.POST(apiPath, func(ctx *gin.Context) {
+		mutCtx := log.ToContext(ctx, log.GetLogger())
+		mutCtx = k8sclient.ToContext(mutCtx, k8sClient)
+
+		admissionReview, err := webhook.DecodeAdmissionReview(ctx)
+		if err != nil {
+			ctx.Status(http.StatusBadRequest)
+			fmt.Fprintf(ctx.Writer, "bad request: %s", err)
+
+			return
+		}
+
+		oldObj, newObj, err := webhook.CheckAndDecodeRequest[T](admissionReview, restMapper)
+		if err != nil {
+			panic(err)
+		}
+
+		response, err := webhook.Admit(mutCtx, admissionReview, oldObj, newObj, hooks)
 		if err != nil {
 			ctx.Status(http.StatusBadRequest)
 			fmt.Fprintf(ctx.Writer, "bad request: %s", err)

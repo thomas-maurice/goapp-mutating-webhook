@@ -10,7 +10,7 @@ import (
 )
 
 func RegisterMutations(ctx context.Context) error {
-	err := api.RegisterMutationHookContext(ctx, "/mutate", []webhook.Mutation[*unstructured.Unstructured]{
+	err := api.RegisterMutationHook(ctx, "/mutate", []webhook.Mutation[*unstructured.Unstructured]{
 		unstructuredMutation.UnstructuredMutation{},
 	})
 
